@@ -1,0 +1,16 @@
+{{#if noText}}
+Сообщение #{{messageId}} сохранено. Текст не найден, анализ пропущен.
+{{else if noEntities}}
+Сообщение #{{messageId}} сохранено. Сущности не обнаружены.
+{{else}}
+Сообщение #{{messageId}} проанализировано. Найдено сущностей: {{totalCount}}
+{{#each groups}}
+
+<b>{{label}}:</b>
+{{#each items}}
+- <u>{{value}}</u>{{#if description}}
+<blockquote expandable>{{description}}</blockquote>
+{{/if}}
+{{/each}}
+{{/each}}
+{{/if}}

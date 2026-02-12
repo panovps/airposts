@@ -4,7 +4,7 @@ Allowed types: person, organization, location, event, sports_club.
 Do not invent entities.
 
 For each entity provide:
-- a short description (2-5 sentences) in Russian explaining who or what this entity is;
+- a short description (3-6 sentences) in Russian explaining who or what this entity is;
 - a Wikipedia URL if one exists (prefer ru.wikipedia.org, fallback to en.wikipedia.org), otherwise null.
 
 Respond strictly in JSON using this schema:

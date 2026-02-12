@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { Bot, Context, InlineKeyboard } from 'grammy';
 
 import { AnalysisService } from '../analysis/analysis.service';
-import { EntityDetection, EntityType } from '../analysis/analysis.types';
+import { EntityDetection } from '../analysis/analysis.types';
 import { EntitiesService } from '../entities/entities.service';
 import { MessagesService } from '../messages/messages.service';
 import { TelegramUsersService } from '../telegram-users/telegram-users.service';
+import { BotTemplateService } from './bot-template.service';
 
 type BotContext = Context;
 type IncomingMessageType = 'message' | 'edited_message';
@@ -22,6 +23,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     private readonly messagesService: MessagesService,
     private readonly analysisService: AnalysisService,
     private readonly entitiesService: EntitiesService,
+    private readonly botTemplateService: BotTemplateService,
   ) {}
 
   onModuleInit(): void {
@@ -40,8 +42,20 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     this.bot
       .start({
-        onStart: (botInfo) => {
-          this.logger.log(`Telegram bot started: @${botInfo.username}`);
+        onStart: async () => {
+          await this.bot!.api.setMyCommands([
+            { command: 'start', description: 'Начать работу' },
+            { command: 'help', description: 'Как использовать' },
+            { command: 'history', description: 'Последние сообщения' },
+          ]);
+
+          const botUsername = this.configService.get<string>('BOT_USERNAME') ?? 'unknown';
+          this.logger.log(`Telegram bot started: @${botUsername}`);
+
+          const adminId = this.configService.get<string>('BOT_ADMIN_ID');
+          if (adminId) {
+            await this.bot!.api.sendMessage(adminId, this.botTemplateService.renderBotStarted(botUsername));
+          }
         },
       })
       .catch((error) => {
@@ -64,13 +78,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         await this.telegramUsersService.upsertFromTelegramUser(ctx.from);
       }
 
-      await ctx.reply(
-        [
-          'Пришлите репост или сообщение с текстом.',
-          'Я сохраню его, извлеку сущности и покажу карточки по категориям.',
-          'Команды: /help, /history',
-        ].join('\n'),
-      );
+      await ctx.reply(this.botTemplateService.renderStart());
     });
 
     bot.command('help', async (ctx) => {
@@ -78,19 +86,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         await this.telegramUsersService.upsertFromTelegramUser(ctx.from);
       }
 
-      await ctx.reply(
-        [
-          'Как использовать:',
-          '1) Перешлите пост в бота.',
-          '2) Бот выделит: person, organization, location, event, sports_club.',
-          '3) Список последних сообщений: /history',
-        ].join('\n'),
-      );
+      await ctx.reply(this.botTemplateService.renderHelp());
     });
 
     bot.command('history', async (ctx) => {
       if (!ctx.from) {
-        await ctx.reply('Не удалось определить пользователя.');
+        await ctx.reply(this.botTemplateService.renderErrorNoUser());
         return;
       }
 
@@ -98,24 +99,20 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const messages = await this.messagesService.findRecentByTelegramUser(telegramUser.id, 5);
       const entities = await this.entitiesService.findByMessageIds(messages.map((item) => item.id));
 
-      if (messages.length === 0) {
-        await ctx.reply('История пуста. Отправьте или перешлите сообщение для анализа.');
-        return;
-      }
-
       const entitiesByMessageId = new Map<string, number>();
       for (const entity of entities) {
         const currentCount = entitiesByMessageId.get(entity.messageId) ?? 0;
         entitiesByMessageId.set(entity.messageId, currentCount + 1);
       }
 
-      const lines = messages.map((message, index) => {
-        const preview = (message.text ?? '[без текста]').replace(/\s+/g, ' ').trim().slice(0, 80);
-        const count = entitiesByMessageId.get(message.id) ?? 0;
-        return `${index + 1}. #${message.id} | ${preview} | сущностей: ${count}`;
-      });
+      const historyMessages = messages.map((message, index) => ({
+        index: index + 1,
+        id: message.id,
+        preview: (message.text ?? '[без текста]').replace(/\s+/g, ' ').trim().slice(0, 80),
+        entityCount: entitiesByMessageId.get(message.id) ?? 0,
+      }));
 
-      await ctx.reply(['Последние сообщения:', ...lines].join('\n'));
+      await ctx.reply(this.botTemplateService.renderHistory(historyMessages));
     });
 
     bot.on('message', async (ctx) => {
@@ -147,7 +144,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const sourceText = message.text?.trim();
 
     if (type === 'message' && sourceText) {
-      const pending = await ctx.reply('Анализирую сообщение…');
+      const pending = await ctx.reply(this.botTemplateService.renderAnalysisPending());
       const detections = await this.analysisService.analyze(sourceText);
       await this.entitiesService.replaceForMessage(message.id, detections);
       const reply = this.buildAnalysisReply(message.id, detections, true);
@@ -168,67 +165,26 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     detections: EntityDetection[],
     hasText: boolean,
   ): { text: string; keyboard?: InlineKeyboard } {
-    if (!hasText) {
-      return { text: `Сообщение #${messageId} сохранено. Текст не найден, анализ пропущен.` };
-    }
+    const text = this.botTemplateService.renderAnalysisReply(messageId, detections, hasText);
 
-    if (detections.length === 0) {
-      return { text: `Сообщение #${messageId} сохранено. Сущности не обнаружены.` };
-    }
-
-    const typeOrder: EntityType[] = ['person', 'organization', 'location', 'event', 'sports_club'];
-    const labels: Record<EntityType, string> = {
-      person: 'Персоны',
-      organization: 'Организации',
-      location: 'Локации',
-      event: 'События',
-      sports_club: 'Спортивные клубы',
-    };
-
-    const grouped = new Map<EntityType, EntityDetection[]>();
-
-    for (const detection of detections) {
-      const list = grouped.get(detection.type) ?? [];
-      list.push(detection);
-      grouped.set(detection.type, list);
-    }
-
-    const lines: string[] = [`Сообщение #${messageId} проанализировано. Найдено сущностей: ${detections.length}`];
     const keyboard = new InlineKeyboard();
     let hasWikiButtons = false;
     let buttonCount = 0;
 
-    for (const type of typeOrder) {
-      const items = grouped.get(type);
-
-      if (!items || items.length === 0) {
-        continue;
-      }
-
-      lines.push(`\n<b>${labels[type]}:</b>`);
-      for (const item of items) {
-        const name = this.escapeHtml(item.value);
-        const desc = item.description ? `\n  <i>${this.escapeHtml(item.description)}</i>` : '';
-        lines.push(`- ${name}${desc}`);
-
-        if (item.wikiUrl) {
-          keyboard.webApp(item.value, item.wikiUrl);
-          hasWikiButtons = true;
-          buttonCount++;
-          if (buttonCount % 2 === 0) {
-            keyboard.row();
-          }
+    for (const detection of detections) {
+      if (detection.wikiUrl) {
+        keyboard.webApp(detection.value, detection.wikiUrl);
+        hasWikiButtons = true;
+        buttonCount++;
+        if (buttonCount % 2 === 0) {
+          keyboard.row();
         }
       }
     }
 
     return {
-      text: lines.join('\n'),
+      text,
       keyboard: hasWikiButtons ? keyboard : undefined,
     };
-  }
-
-  private escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 }

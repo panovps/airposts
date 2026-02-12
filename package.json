@@ -4,7 +4,7 @@
   "private": true,
   "description": "Telegram bot repost analysis",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp -r src/analysis/prompts dist/analysis/prompts",
+    "build": "tsc -p tsconfig.build.json && cp -r src/analysis/prompts dist/analysis/prompts && cp -r src/bot/templates dist/bot/templates",
     "start": "node dist/main.js",
     "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "typecheck": "tsc --noEmit",
@@ -29,6 +29,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "ai": "^6.0.82",
     "grammy": "^1.38.3",
+    "handlebars": "^4.7.8",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

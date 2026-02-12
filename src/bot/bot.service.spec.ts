@@ -45,6 +45,7 @@ import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 
 import { BotService } from './bot.service';
+import { BotTemplateService } from './bot-template.service';
 import { TelegramUsersService } from '../telegram-users/telegram-users.service';
 import { MessagesService } from '../messages/messages.service';
 import { AnalysisService } from '../analysis/analysis.service';
@@ -72,6 +73,7 @@ describe('BotService', () => {
 
     const module = await Test.createTestingModule({
       providers: [
+        BotTemplateService,
         BotService,
         { provide: ConfigService, useValue: mockConfigService },
         { provide: TelegramUsersService, useValue: mockTelegramUsersService },
@@ -346,7 +348,7 @@ describe('BotService', () => {
       const replyText = ctx.api.editMessageText.mock.calls[0][2] as string;
       expect(replyText).toContain('<b>Персоны:</b>');
       expect(replyText).toContain('Elon Musk');
-      expect(replyText).toContain('<i>CEO of SpaceX</i>');
+      expect(replyText).toContain('<blockquote expandable>CEO of SpaceX</blockquote>');
       expect(replyText).toContain('<b>Организации:</b>');
       expect(replyText).toContain('SpaceX');
       expect(replyText).toContain('Найдено сущностей: 2');
