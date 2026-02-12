@@ -1,0 +1,41 @@
+{
+  "name": "tgbot-postintel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram repost analysis bot built with NestJS and grammY",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate src/database/migrations/$npm_config_name",
+    "migration:create": "typeorm migration:create src/database/migrations/$npm_config_name",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:show": "npm run typeorm -- migration:show"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.42",
+    "@ai-sdk/deepseek": "^2.0.19",
+    "@ai-sdk/openai": "^3.0.27",
+    "@nestjs/common": "^11.0.3",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.3",
+    "@nestjs/platform-express": "^11.0.3",
+    "@nestjs/typeorm": "^11.0.0",
+    "ai": "^6.0.82",
+    "grammy": "^1.38.3",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.20",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.2"
+  }
+}
