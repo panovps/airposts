@@ -79,23 +79,20 @@ describe('AnalysisService', () => {
       );
     });
 
-    it('should fallback to regex when LLM returns empty entities', async () => {
+    it('should return [] when LLM returns empty entities', async () => {
       mockGenerateObject.mockResolvedValue({
         object: { entities: [] },
       } as any);
 
       const result = await service.analyze('John Smith went to the conference');
 
-      expect(result.length).toBeGreaterThan(0);
-      expect(result.some((d) => d.type === 'person')).toBe(true);
+      expect(result).toEqual([]);
     });
 
-    it('should fallback to regex when LLM throws', async () => {
+    it('should propagate error when LLM throws', async () => {
       mockGenerateObject.mockRejectedValue(new Error('LLM error'));
 
-      const result = await service.analyze('John Smith went to the conference');
-
-      expect(result.length).toBeGreaterThan(0);
+      await expect(service.analyze('John Smith went to the conference')).rejects.toThrow('LLM error');
     });
   });
 
@@ -242,40 +239,6 @@ describe('AnalysisService', () => {
 
       const { openai } = jest.requireMock('@ai-sdk/openai');
       expect(openai).toHaveBeenCalled();
-    });
-  });
-
-  describe('fallback regex', () => {
-    beforeEach(() => {
-      mockGenerateObject.mockRejectedValue(new Error('fail'));
-    });
-
-    it('should detect Latin person names', async () => {
-      const result = await service.analyze('Author: John Smith');
-
-      expect(result.some((d) => d.type === 'person' && d.value === 'John Smith')).toBe(true);
-    });
-
-    it('should not detect Cyrillic names (\\b does not work with non-ASCII)', async () => {
-      const result = await service.analyze('Автор: Пётр Петров');
-
-      expect(result.filter((d) => d.type === 'person')).toHaveLength(0);
-    });
-
-    it('should detect Latin event keywords', async () => {
-      const result = await service.analyze('Tomorrow is the conference');
-
-      expect(result.some((d) => d.type === 'event' && d.value === 'conference')).toBe(true);
-    });
-
-    it('should have description=null and wikiUrl=null for fallback detections', async () => {
-      const result = await service.analyze('John Smith attended the conference');
-
-      expect(result.length).toBeGreaterThan(0);
-      for (const detection of result) {
-        expect(detection.description).toBeNull();
-        expect(detection.wikiUrl).toBeNull();
-      }
     });
   });
 
