@@ -4,7 +4,7 @@
   "private": true,
   "description": "Telegram repost analysis bot built with NestJS and grammY",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && cp -r src/analysis/prompts dist/analysis/prompts",
     "start": "node dist/main.js",
     "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "typecheck": "tsc --noEmit",

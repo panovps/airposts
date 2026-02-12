@@ -29,6 +29,7 @@ export class EntitiesService {
         startOffset: detection.startOffset,
         endOffset: detection.endOffset,
         reason: detection.reason,
+        wikiUrl: detection.wikiUrl,
       }),
     );
 

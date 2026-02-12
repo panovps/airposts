@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { anthropic } from '@ai-sdk/anthropic';
 import { deepseek } from '@ai-sdk/deepseek';
 import { openai } from '@ai-sdk/openai';
@@ -18,6 +21,7 @@ const analysisResponseSchema = z.object({
         value: z.string().min(1).max(200),
         confidence: z.number().min(0).max(1).optional(),
         reason: z.string().max(240).nullable().optional(),
+        wikiUrl: z.string().url().max(500).nullable().optional(),
       }),
     )
     .max(40)
@@ -27,6 +31,10 @@ const analysisResponseSchema = z.object({
 type LlmProvider = 'openai' | 'anthropic' | 'deepseek';
 
 type RawDetection = z.infer<typeof analysisResponseSchema>['entities'][number];
+
+const PROMPTS_DIR = join(__dirname, 'prompts');
+const systemPrompt = readFileSync(join(PROMPTS_DIR, 'system.md'), 'utf-8').trim();
+const userPromptTemplate = readFileSync(join(PROMPTS_DIR, 'user.md'), 'utf-8').trim();
 
 @Injectable()
 export class AnalysisService {
@@ -63,18 +71,8 @@ export class AnalysisService {
       model,
       schema: analysisResponseSchema,
       temperature: 0,
-      system: [
-        'You extract named entities from a Telegram post.',
-        'Return only entities that are explicitly present in the text.',
-        'Allowed types: person, organization, location, event, sports_club.',
-        'Do not invent entities.',
-      ].join(' '),
-      prompt: [
-        'Extract entities from the following post.',
-        'Respond using the schema only.',
-        '',
-        source,
-      ].join('\n'),
+      system: systemPrompt,
+      prompt: userPromptTemplate.replace('{{source}}', source),
     });
 
     const detections = this.normalizeDetections(source, object.entities);
@@ -157,6 +155,7 @@ export class AnalysisService {
         startOffset,
         endOffset,
         reason: rawEntity.reason ?? 'Extracted by LLM',
+        wikiUrl: rawEntity.wikiUrl ?? null,
       });
     }
 
@@ -244,6 +243,7 @@ export class AnalysisService {
         startOffset: match.index ?? null,
         endOffset: match.index === undefined ? null : match.index + value.length,
         reason,
+        wikiUrl: null,
       });
     }
   }

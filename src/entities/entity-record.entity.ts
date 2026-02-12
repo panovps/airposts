@@ -55,6 +55,9 @@ export class EntityRecordEntity {
   @Column({ type: 'text', nullable: true })
   reason!: string | null;
 
+  @Column({ name: 'wiki_url', type: 'text', nullable: true })
+  wikiUrl!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', default: () => 'now()' })
   createdAt!: Date;
 }

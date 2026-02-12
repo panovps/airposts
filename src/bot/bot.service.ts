@@ -145,12 +145,21 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const message = await this.messagesService.storeFromContext(ctx, type, telegramUser.id);
 
     const sourceText = message.text?.trim();
-    const detections = sourceText ? await this.analysisService.analyze(sourceText) : [];
-    await this.entitiesService.replaceForMessage(message.id, detections);
 
-    if (type === 'message') {
-      await ctx.reply(this.buildAnalysisReply(message.id, detections, Boolean(sourceText)));
+    if (type === 'message' && sourceText) {
+      const pending = await ctx.reply('Анализирую сообщение…');
+      const detections = await this.analysisService.analyze(sourceText);
+      await this.entitiesService.replaceForMessage(message.id, detections);
+      await ctx.api.editMessageText(
+        pending.chat.id,
+        pending.message_id,
+        this.buildAnalysisReply(message.id, detections, true),
+        { parse_mode: 'HTML' },
+      );
+      return;
     }
+
+    await this.entitiesService.replaceForMessage(message.id, []);
   }
 
   private buildAnalysisReply(messageId: string, detections: EntityDetection[], hasText: boolean): string {
@@ -188,12 +197,19 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
-      lines.push(`\n${labels[type]}:`);
+      lines.push(`\n<b>${labels[type]}:</b>`);
       for (const item of items) {
-        lines.push(`- ${item.value} (confidence ${item.confidence.toFixed(2)})`);
+        const name = this.escapeHtml(item.value);
+        const wiki = item.wikiUrl ? ` [<a href="${this.escapeHtml(item.wikiUrl)}">wiki</a>]` : '';
+        // lines.push(`- ${name} (${item.confidence.toFixed(2)})${wiki}`);
+        lines.push(`- ${name} ${wiki}`);
       }
     }
 
     return lines.join('\n');
+  }
+
+  private escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 }
