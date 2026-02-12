@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Bot, Context } from 'grammy';
+import { Bot, Context, InlineKeyboard } from 'grammy';
 
 import { AnalysisService } from '../analysis/analysis.service';
 import { EntityDetection, EntityType } from '../analysis/analysis.types';
@@ -150,11 +150,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const pending = await ctx.reply('Анализирую сообщение…');
       const detections = await this.analysisService.analyze(sourceText);
       await this.entitiesService.replaceForMessage(message.id, detections);
+      const reply = this.buildAnalysisReply(message.id, detections, true);
       await ctx.api.editMessageText(
         pending.chat.id,
         pending.message_id,
-        this.buildAnalysisReply(message.id, detections, true),
-        { parse_mode: 'HTML' },
+        reply.text,
+        { parse_mode: 'HTML', reply_markup: reply.keyboard },
       );
       return;
     }
@@ -162,13 +163,17 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     await this.entitiesService.replaceForMessage(message.id, []);
   }
 
-  private buildAnalysisReply(messageId: string, detections: EntityDetection[], hasText: boolean): string {
+  private buildAnalysisReply(
+    messageId: string,
+    detections: EntityDetection[],
+    hasText: boolean,
+  ): { text: string; keyboard?: InlineKeyboard } {
     if (!hasText) {
-      return `Сообщение #${messageId} сохранено. Текст не найден, анализ пропущен.`;
+      return { text: `Сообщение #${messageId} сохранено. Текст не найден, анализ пропущен.` };
     }
 
     if (detections.length === 0) {
-      return `Сообщение #${messageId} сохранено. Сущности не обнаружены.`;
+      return { text: `Сообщение #${messageId} сохранено. Сущности не обнаружены.` };
     }
 
     const typeOrder: EntityType[] = ['person', 'organization', 'location', 'event', 'sports_club'];
@@ -189,6 +194,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
 
     const lines: string[] = [`Сообщение #${messageId} проанализировано. Найдено сущностей: ${detections.length}`];
+    const keyboard = new InlineKeyboard();
+    let hasWikiButtons = false;
+    let buttonCount = 0;
 
     for (const type of typeOrder) {
       const items = grouped.get(type);
@@ -200,13 +208,24 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       lines.push(`\n<b>${labels[type]}:</b>`);
       for (const item of items) {
         const name = this.escapeHtml(item.value);
-        const wiki = item.wikiUrl ? ` [<a href="${this.escapeHtml(item.wikiUrl)}">wiki</a>]` : '';
         const desc = item.description ? `\n  <i>${this.escapeHtml(item.description)}</i>` : '';
-        lines.push(`- ${name}${wiki}${desc}`);
+        lines.push(`- ${name}${desc}`);
+
+        if (item.wikiUrl) {
+          keyboard.webApp(item.value, item.wikiUrl);
+          hasWikiButtons = true;
+          buttonCount++;
+          if (buttonCount % 2 === 0) {
+            keyboard.row();
+          }
+        }
       }
     }
 
-    return lines.join('\n');
+    return {
+      text: lines.join('\n'),
+      keyboard: hasWikiButtons ? keyboard : undefined,
+    };
   }
 
   private escapeHtml(text: string): string {

@@ -1,19 +1,45 @@
 const commandHandlers = new Map<string, (...args: any[]) => any>();
 const onHandlers = new Map<string, (...args: any[]) => any>();
 
-jest.mock('grammy', () => ({
-  Bot: jest.fn().mockImplementation(() => ({
-    command: jest.fn((name: string, handler: any) => {
-      commandHandlers.set(name, handler);
-    }),
-    on: jest.fn((event: string, handler: any) => {
-      onHandlers.set(event, handler);
-    }),
-    catch: jest.fn(),
-    start: jest.fn().mockResolvedValue(undefined),
-    stop: jest.fn(),
-  })),
-}));
+jest.mock('grammy', () => {
+  class MockInlineKeyboard {
+    private buttons: Record<string, any>[][] = [];
+    private currentRow: Record<string, any>[] = [];
+
+    url(text: string, urlValue: string) {
+      this.currentRow.push({ text, url: urlValue });
+      return this;
+    }
+
+    webApp(text: string, urlValue: string) {
+      this.currentRow.push({ text, web_app: { url: urlValue } });
+      return this;
+    }
+
+    row() {
+      if (this.currentRow.length > 0) {
+        this.buttons.push(this.currentRow);
+        this.currentRow = [];
+      }
+      return this;
+    }
+  }
+
+  return {
+    Bot: jest.fn().mockImplementation(() => ({
+      command: jest.fn((name: string, handler: any) => {
+        commandHandlers.set(name, handler);
+      }),
+      on: jest.fn((event: string, handler: any) => {
+        onHandlers.set(event, handler);
+      }),
+      catch: jest.fn(),
+      start: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn(),
+    })),
+    InlineKeyboard: MockInlineKeyboard,
+  };
+});
 
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
@@ -239,7 +265,7 @@ describe('BotService', () => {
         100,
         99,
         expect.any(String),
-        { parse_mode: 'HTML' },
+        expect.objectContaining({ parse_mode: 'HTML' }),
       );
     });
 
@@ -320,11 +346,14 @@ describe('BotService', () => {
       const replyText = ctx.api.editMessageText.mock.calls[0][2] as string;
       expect(replyText).toContain('<b>Персоны:</b>');
       expect(replyText).toContain('Elon Musk');
-      expect(replyText).toContain('<a href="https://en.wikipedia.org/wiki/Elon_Musk">wiki</a>');
       expect(replyText).toContain('<i>CEO of SpaceX</i>');
       expect(replyText).toContain('<b>Организации:</b>');
       expect(replyText).toContain('SpaceX');
       expect(replyText).toContain('Найдено сущностей: 2');
+      expect(replyText).not.toContain('<a href=');
+
+      const options = ctx.api.editMessageText.mock.calls[0][3];
+      expect(options.reply_markup).toBeDefined();
     });
 
     it('should escape HTML in values', async () => {
