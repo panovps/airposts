@@ -201,8 +201,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       for (const item of items) {
         const name = this.escapeHtml(item.value);
         const wiki = item.wikiUrl ? ` [<a href="${this.escapeHtml(item.wikiUrl)}">wiki</a>]` : '';
-        // lines.push(`- ${name} (${item.confidence.toFixed(2)})${wiki}`);
-        lines.push(`- ${name} ${wiki}`);
+        const desc = item.description ? `\n  <i>${this.escapeHtml(item.description)}</i>` : '';
+        lines.push(`- ${name}${wiki}${desc}`);
       }
     }
 

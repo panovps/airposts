@@ -21,6 +21,7 @@ const analysisResponseSchema = z.object({
         value: z.string().min(1).max(200),
         confidence: z.number().min(0).max(1).optional(),
         reason: z.string().max(240).nullable().optional(),
+        description: z.string().max(500).nullable().optional(),
         wikiUrl: z.string().url().max(500).nullable().optional(),
       }),
     )
@@ -155,6 +156,7 @@ export class AnalysisService {
         startOffset,
         endOffset,
         reason: rawEntity.reason ?? 'Extracted by LLM',
+        description: rawEntity.description ?? null,
         wikiUrl: rawEntity.wikiUrl ?? null,
       });
     }
@@ -243,6 +245,7 @@ export class AnalysisService {
         startOffset: match.index ?? null,
         endOffset: match.index === undefined ? null : match.index + value.length,
         reason,
+        description: null,
         wikiUrl: null,
       });
     }
