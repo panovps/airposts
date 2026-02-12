@@ -1,4 +1,4 @@
-# tgbot-postintel
+# AirPost Telegram Bot
 
 MVP-скелет Telegram-бота на NestJS + grammY с сохранением пользователей и входящих пересланных сообщений (пока только PostgreSQL, без Redis).
 

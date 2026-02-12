@@ -1,8 +1,8 @@
 {
-  "name": "tgbot-postintel",
+  "name": "AirPost",
   "version": "0.1.0",
   "private": true,
-  "description": "Telegram repost analysis bot built with NestJS and grammY",
+  "description": "Telegram bot repost analysis",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && cp -r src/analysis/prompts dist/analysis/prompts",
     "start": "node dist/main.js",
