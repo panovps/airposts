@@ -13,28 +13,42 @@ export class EntitiesService {
   ) {}
 
   async replaceForMessage(messageId: string, detections: EntityDetection[]): Promise<EntityRecordEntity[]> {
-    await this.repository.delete({ messageId });
+    const queryRunner = this.repository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (detections.length === 0) {
-      return [];
+    try {
+      await queryRunner.manager.delete(EntityRecordEntity, { messageId });
+
+      if (detections.length === 0) {
+        await queryRunner.commitTransaction();
+        return [];
+      }
+
+      const entities = detections.map((detection) =>
+        this.repository.create({
+          messageId,
+          type: detection.type,
+          value: detection.value,
+          normalizedValue: detection.normalizedValue,
+          confidence: detection.confidence,
+          startOffset: detection.startOffset,
+          endOffset: detection.endOffset,
+          reason: detection.reason,
+          description: detection.description,
+          wikiUrl: detection.wikiUrl,
+        }),
+      );
+
+      const saved = await queryRunner.manager.save(entities);
+      await queryRunner.commitTransaction();
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    const entities = detections.map((detection) =>
-      this.repository.create({
-        messageId,
-        type: detection.type,
-        value: detection.value,
-        normalizedValue: detection.normalizedValue,
-        confidence: detection.confidence,
-        startOffset: detection.startOffset,
-        endOffset: detection.endOffset,
-        reason: detection.reason,
-        description: detection.description,
-        wikiUrl: detection.wikiUrl,
-      }),
-    );
-
-    return this.repository.save(entities);
   }
 
   async findByMessageIds(messageIds: string[]): Promise<EntityRecordEntity[]> {

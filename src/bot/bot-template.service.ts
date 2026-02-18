@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import Handlebars from 'handlebars';
 
 import { EntityDetection, EntityType } from '../analysis/analysis.types';
@@ -24,18 +24,18 @@ interface HistoryMessage {
 }
 
 @Injectable()
-export class BotTemplateService {
-  private readonly templates: Record<string, Handlebars.TemplateDelegate>;
+export class BotTemplateService implements OnModuleInit {
+  private readonly templates: Record<string, Handlebars.TemplateDelegate> = {};
 
-  constructor() {
+  async onModuleInit(): Promise<void> {
     const templatesDir = join(__dirname, 'templates');
-    const names = ['analysis-reply', 'analysis-pending', 'start', 'help', 'error-no-user', 'history', 'bot-started'];
-    this.templates = {};
-    for (const name of names) {
-      this.templates[name] = Handlebars.compile(
-        readFileSync(join(templatesDir, `${name}.hbs`), 'utf-8'),
-        { noEscape: false },
-      );
+    const files = await readdir(templatesDir);
+    const hbsFiles = files.filter((file) => file.endsWith('.hbs'));
+
+    for (const file of hbsFiles) {
+      const name = file.replace('.hbs', '');
+      const content = await readFile(join(templatesDir, file), 'utf-8');
+      this.templates[name] = Handlebars.compile(content, { noEscape: false });
     }
   }
 
@@ -61,6 +61,10 @@ export class BotTemplateService {
 
   renderAnalysisPending(): string {
     return this.render('analysis-pending');
+  }
+
+  renderAnalysisError(): string {
+    return this.render('analysis-error');
   }
 
   renderHistory(messages: HistoryMessage[]): string {

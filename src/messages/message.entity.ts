@@ -5,14 +5,17 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
+import { EntityRecordEntity } from '../entities/entity-record.entity';
 import { TelegramUserEntity } from '../telegram-users/telegram-user.entity';
 
 @Entity({ name: 'messages' })
 @Index('idx_messages_chat_message', ['chatId', 'telegramMessageId'])
+@Index('idx_messages_user_created', ['telegramUserId', 'createdAt'])
 export class MessageEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id!: string;
@@ -24,6 +27,9 @@ export class MessageEntity {
   @ManyToOne(() => TelegramUserEntity, { nullable: false, onDelete: 'NO ACTION' })
   @JoinColumn({ name: 'telegram_user_id', foreignKeyConstraintName: 'messages_telegram_user_id_fkey' })
   telegramUser!: TelegramUserEntity;
+
+  @OneToMany(() => EntityRecordEntity, (entity) => entity.message)
+  entities!: EntityRecordEntity[];
 
   @Column({ name: 'update_type', type: 'varchar', length: 32 })
   updateType!: 'message' | 'edited_message';

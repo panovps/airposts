@@ -24,11 +24,18 @@ export class TelegramUsersService {
       lastSeenAt: new Date(),
     };
 
-    await this.repository.upsert(values, {
-      conflictPaths: ['telegramId'],
-      skipUpdateIfNoValuesChanged: false,
-    });
+    const result = await this.repository
+      .createQueryBuilder()
+      .insert()
+      .into(TelegramUserEntity)
+      .values(values)
+      .orUpdate(
+        ['username', 'firstName', 'lastName', 'languageCode', 'isBot', 'isPremium', 'lastSeenAt'],
+        ['telegramId'],
+      )
+      .returning('*')
+      .execute();
 
-    return this.repository.findOneByOrFail({ telegramId: String(user.id) });
+    return result.raw[0] as TelegramUserEntity;
   }
 }

@@ -5,9 +5,19 @@ import { User } from 'grammy/types';
 import { TelegramUserEntity } from './telegram-user.entity';
 import { TelegramUsersService } from './telegram-users.service';
 
+const mockQueryBuilder = {
+  insert: jest.fn().mockReturnThis(),
+  into: jest.fn().mockReturnThis(),
+  values: jest.fn().mockReturnThis(),
+  orUpdate: jest.fn().mockReturnThis(),
+  returning: jest.fn().mockReturnThis(),
+  execute: jest.fn(),
+};
+
 const mockRepository = {
   upsert: jest.fn(),
   findOneByOrFail: jest.fn(),
+  createQueryBuilder: jest.fn(() => mockQueryBuilder),
 };
 
 describe('TelegramUsersService', () => {
@@ -51,11 +61,12 @@ describe('TelegramUsersService', () => {
   };
 
   it('should upsert with full user fields', async () => {
-    mockRepository.findOneByOrFail.mockResolvedValue(fakeEntity);
+    mockQueryBuilder.execute.mockResolvedValue({ raw: [fakeEntity] });
 
-    await service.upsertFromTelegramUser(fullUser);
+    const result = await service.upsertFromTelegramUser(fullUser);
 
-    expect(mockRepository.upsert).toHaveBeenCalledWith(
+    expect(mockRepository.createQueryBuilder).toHaveBeenCalled();
+    expect(mockQueryBuilder.values).toHaveBeenCalledWith(
       expect.objectContaining({
         telegramId: '123456',
         username: 'johndoe',
@@ -65,16 +76,17 @@ describe('TelegramUsersService', () => {
         isBot: false,
         isPremium: true,
       }),
-      { conflictPaths: ['telegramId'], skipUpdateIfNoValuesChanged: false },
     );
+    expect(result).toEqual(fakeEntity);
   });
 
   it('should upsert with minimal user (optional fields → null)', async () => {
-    mockRepository.findOneByOrFail.mockResolvedValue(fakeEntity);
+    const minimalEntity = { ...fakeEntity, telegramId: '789' };
+    mockQueryBuilder.execute.mockResolvedValue({ raw: [minimalEntity] });
 
-    await service.upsertFromTelegramUser(minimalUser);
+    const result = await service.upsertFromTelegramUser(minimalUser);
 
-    expect(mockRepository.upsert).toHaveBeenCalledWith(
+    expect(mockQueryBuilder.values).toHaveBeenCalledWith(
       expect.objectContaining({
         telegramId: '789',
         username: null,
@@ -84,27 +96,26 @@ describe('TelegramUsersService', () => {
         isBot: true,
         isPremium: null,
       }),
-      expect.any(Object),
     );
+    expect(result).toHaveProperty('telegramId', '789');
   });
 
   it('should stringify user.id to telegramId', async () => {
-    mockRepository.findOneByOrFail.mockResolvedValue(fakeEntity);
+    mockQueryBuilder.execute.mockResolvedValue({ raw: [fakeEntity] });
 
     await service.upsertFromTelegramUser(fullUser);
 
-    const upsertValues = mockRepository.upsert.mock.calls[0][0];
+    const upsertValues = mockQueryBuilder.values.mock.calls[0][0];
     expect(upsertValues.telegramId).toBe('123456');
     expect(typeof upsertValues.telegramId).toBe('string');
   });
 
-  it('should call findOneByOrFail after upsert', async () => {
-    mockRepository.findOneByOrFail.mockResolvedValue(fakeEntity);
+  it('should return entity from RETURNING clause', async () => {
+    mockQueryBuilder.execute.mockResolvedValue({ raw: [fakeEntity] });
 
     const result = await service.upsertFromTelegramUser(fullUser);
 
-    expect(mockRepository.upsert).toHaveBeenCalledTimes(1);
-    expect(mockRepository.findOneByOrFail).toHaveBeenCalledWith({ telegramId: '123456' });
-    expect(result).toBe(fakeEntity);
+    expect(mockQueryBuilder.returning).toHaveBeenCalledWith('*');
+    expect(result).toEqual(fakeEntity);
   });
 });

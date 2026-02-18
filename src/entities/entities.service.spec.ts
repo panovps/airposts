@@ -5,11 +5,28 @@ import { EntityDetection } from '../analysis/analysis.types';
 import { EntityRecordEntity } from './entity-record.entity';
 import { EntitiesService } from './entities.service';
 
+const mockQueryRunner = {
+  connect: jest.fn(),
+  startTransaction: jest.fn(),
+  commitTransaction: jest.fn(),
+  rollbackTransaction: jest.fn(),
+  release: jest.fn(),
+  manager: {
+    delete: jest.fn(),
+    save: jest.fn((entities: Partial<EntityRecordEntity>[]) => entities),
+  },
+};
+
 const mockRepository = {
   delete: jest.fn(),
   create: jest.fn((dto: Partial<EntityRecordEntity>) => dto),
   save: jest.fn((entities: Partial<EntityRecordEntity>[]) => entities),
   find: jest.fn(),
+  manager: {
+    connection: {
+      createQueryRunner: jest.fn(() => mockQueryRunner),
+    },
+  },
 };
 
 describe('EntitiesService', () => {
@@ -44,18 +61,24 @@ describe('EntitiesService', () => {
     it('should delete old entities and create new ones', async () => {
       const result = await service.replaceForMessage('42', [sampleDetection]);
 
-      expect(mockRepository.delete).toHaveBeenCalledWith({ messageId: '42' });
+      expect(mockQueryRunner.connect).toHaveBeenCalled();
+      expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.manager.delete).toHaveBeenCalledWith(EntityRecordEntity, { messageId: '42' });
       expect(mockRepository.create).toHaveBeenCalledTimes(1);
-      expect(mockRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockQueryRunner.manager.save).toHaveBeenCalledTimes(1);
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.release).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });
 
     it('should delete and return [] when detections are empty', async () => {
       const result = await service.replaceForMessage('42', []);
 
-      expect(mockRepository.delete).toHaveBeenCalledWith({ messageId: '42' });
+      expect(mockQueryRunner.manager.delete).toHaveBeenCalledWith(EntityRecordEntity, { messageId: '42' });
       expect(mockRepository.create).not.toHaveBeenCalled();
-      expect(mockRepository.save).not.toHaveBeenCalled();
+      expect(mockQueryRunner.manager.save).not.toHaveBeenCalled();
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.release).toHaveBeenCalled();
       expect(result).toEqual([]);
     });
 
@@ -91,6 +114,17 @@ describe('EntitiesService', () => {
           wikiUrl: null,
         }),
       );
+    });
+
+    it('should rollback transaction on error', async () => {
+      (mockQueryRunner.manager.save as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
+
+      await expect(service.replaceForMessage('42', [sampleDetection])).rejects.toThrow('Database error');
+
+      expect(mockQueryRunner.startTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
+      expect(mockQueryRunner.release).toHaveBeenCalled();
     });
   });
 

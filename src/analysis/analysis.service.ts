@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 
-import { EntityDetection } from './analysis.types';
+import { EntityDetection, LlmModel } from './analysis.types';
 
 const entityTypeSchema = z.enum(['person', 'organization', 'location', 'event', 'sports_club']);
 
@@ -22,7 +22,8 @@ const analysisResponseSchema = z.object({
         confidence: z.number().min(0).max(1).optional(),
         reason: z.string().max(240).nullable().optional(),
         description: z.string().max(500).nullable().optional(),
-        wikiUrl: z.string().url().max(500).nullable().optional(),
+        // Do not use `.url()` here: OpenAI response JSON schema rejects `format: "uri"` in strict mode.
+        wikiUrl: z.string().max(500).nullable().optional(),
       }),
     )
     .max(40)
@@ -70,7 +71,7 @@ export class AnalysisService {
     return detections;
   }
 
-  private resolveModel(): { provider: LlmProvider; modelId: string; model: ReturnType<typeof openai> } {
+  private resolveModel(): { provider: LlmProvider; modelId: string; model: LlmModel } {
     const provider = this.resolveProvider();
 
     if (provider === 'anthropic') {
@@ -78,7 +79,7 @@ export class AnalysisService {
       return {
         provider,
         modelId,
-        model: anthropic(modelId) as ReturnType<typeof openai>,
+        model: anthropic(modelId),
       };
     }
 
@@ -87,7 +88,7 @@ export class AnalysisService {
       return {
         provider,
         modelId,
-        model: deepseek(modelId) as ReturnType<typeof openai>,
+        model: deepseek(modelId),
       };
     }
 
@@ -145,7 +146,7 @@ export class AnalysisService {
         endOffset,
         reason: rawEntity.reason ?? 'Extracted by LLM',
         description: rawEntity.description ?? null,
-        wikiUrl: rawEntity.wikiUrl ?? null,
+        wikiUrl: this.normalizeWikiUrl(rawEntity.wikiUrl),
       });
     }
 
@@ -197,5 +198,27 @@ export class AnalysisService {
     }
 
     return confidence;
+  }
+
+  private normalizeWikiUrl(wikiUrl?: string | null): string | null {
+    if (typeof wikiUrl !== 'string') {
+      return null;
+    }
+
+    const value = wikiUrl.trim();
+    if (!value) {
+      return null;
+    }
+
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return null;
+      }
+
+      return parsed.toString();
+    } catch {
+      return null;
+    }
   }
 }

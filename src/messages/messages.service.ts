@@ -4,9 +4,9 @@ import { Context } from 'grammy';
 import { Message } from 'grammy/types';
 import { Repository } from 'typeorm';
 
+import { IncomingMessageType } from '../common/types';
+import { StoreMessageDto } from './dto/store-message.dto';
 import { MessageEntity } from './message.entity';
-
-type IncomingMessageType = 'message' | 'edited_message';
 
 @Injectable()
 export class MessagesService {
@@ -14,6 +14,11 @@ export class MessagesService {
     @InjectRepository(MessageEntity)
     private readonly repository: Repository<MessageEntity>,
   ) {}
+
+  async storeMessage(dto: StoreMessageDto): Promise<MessageEntity> {
+    const entity = this.repository.create(dto);
+    return this.repository.save(entity);
+  }
 
   async storeFromContext(ctx: Context, updateType: IncomingMessageType, telegramUserId: string): Promise<MessageEntity> {
     const message = this.pickMessage(ctx, updateType);
@@ -24,7 +29,7 @@ export class MessagesService {
 
     const forwardMeta = this.extractForwardMeta(message);
 
-    const entity = this.repository.create({
+    const dto: StoreMessageDto = {
       telegramUserId,
       updateType,
       chatId: String(message.chat.id),
@@ -33,9 +38,9 @@ export class MessagesService {
       sourceMessageId: forwardMeta.sourceMessageId,
       text: this.extractText(message),
       rawPayload: message as unknown as Record<string, unknown>,
-    });
+    };
 
-    return this.repository.save(entity);
+    return this.storeMessage(dto);
   }
 
   async findRecentByTelegramUser(telegramUserId: string, limit = 10): Promise<MessageEntity[]> {
@@ -44,6 +49,34 @@ export class MessagesService {
       order: { createdAt: 'DESC' },
       take: limit,
     });
+  }
+
+  async findRecentWithEntityCounts(
+    telegramUserId: string,
+    limit = 10,
+  ): Promise<Array<MessageEntity & { entityCount: number }>> {
+    const results = await this.repository
+      .createQueryBuilder('message')
+      .leftJoin('message.entities', 'entity')
+      .select([
+        'message.id',
+        'message.text',
+        'message.createdAt',
+        'message.updateType',
+        'message.chatId',
+        'message.telegramMessageId',
+      ])
+      .addSelect('COUNT(entity.id)', 'entityCount')
+      .where('message.telegramUserId = :telegramUserId', { telegramUserId })
+      .groupBy('message.id')
+      .orderBy('message.createdAt', 'DESC')
+      .limit(limit)
+      .getRawAndEntities();
+
+    return results.entities.map((message, index) => ({
+      ...message,
+      entityCount: Number(results.raw[index].entityCount) || 0,
+    }));
   }
 
   private pickMessage(ctx: Context, updateType: IncomingMessageType): Message | undefined {
