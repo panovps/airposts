@@ -19,15 +19,14 @@ const analysisResponseSchema = z.object({
       z.object({
         type: entityTypeSchema,
         value: z.string().min(1).max(200),
-        confidence: z.number().min(0).max(1).optional(),
-        reason: z.string().max(240).nullable().optional(),
-        description: z.string().max(500).nullable().optional(),
+        confidence: z.number().min(0).max(1).nullable(),
+        reason: z.string().max(240).nullable(),
+        description: z.string().max(500).nullable(),
         // Do not use `.url()` here: OpenAI response JSON schema rejects `format: "uri"` in strict mode.
-        wikiUrl: z.string().max(500).nullable().optional(),
+        wikiUrl: z.string().max(500).nullable(),
       }),
     )
-    .max(40)
-    .default([]),
+    .max(40),
 });
 
 type LlmProvider = 'openai' | 'anthropic' | 'deepseek';
@@ -184,7 +183,7 @@ export class AnalysisService {
     return value.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
-  private normalizeConfidence(confidence?: number): number {
+  private normalizeConfidence(confidence: number | null): number {
     if (typeof confidence !== 'number' || Number.isNaN(confidence)) {
       return 0.75;
     }
@@ -200,7 +199,7 @@ export class AnalysisService {
     return confidence;
   }
 
-  private normalizeWikiUrl(wikiUrl?: string | null): string | null {
+  private normalizeWikiUrl(wikiUrl: string | null): string | null {
     if (typeof wikiUrl !== 'string') {
       return null;
     }

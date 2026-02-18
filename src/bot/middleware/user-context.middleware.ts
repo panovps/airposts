@@ -12,6 +12,7 @@ export interface BotContextWithState extends Context {
 export function userContextMiddleware(telegramUsersService: TelegramUsersService) {
   return async (ctx: BotContextWithState, next: () => Promise<void>) => {
     if (ctx.from) {
+      ctx.state = ctx.state || {};
       ctx.state.telegramUser = await telegramUsersService.upsertFromTelegramUser(ctx.from);
     }
     await next();

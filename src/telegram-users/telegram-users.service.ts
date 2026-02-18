@@ -30,8 +30,8 @@ export class TelegramUsersService {
       .into(TelegramUserEntity)
       .values(values)
       .orUpdate(
-        ['username', 'firstName', 'lastName', 'languageCode', 'isBot', 'isPremium', 'lastSeenAt'],
-        ['telegramId'],
+        ['username', 'first_name', 'last_name', 'language_code', 'is_bot', 'is_premium', 'last_seen_at'],
+        ['telegram_id'],
       )
       .returning('*')
       .execute();
