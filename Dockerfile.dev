@@ -1,0 +1,22 @@
+# Development Dockerfile with hot reload
+
+FROM node:24-alpine AS development
+WORKDIR /app
+
+# Install PostgreSQL client for migrations
+RUN apk add --no-cache postgresql-client
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Expose application port
+EXPOSE 3000
+
+# Start development server with hot reload
+CMD ["npm", "run", "start:dev"]

@@ -6,3 +6,6 @@ dist
 .idea
 
 coverage
+
+# Docker data
+data/

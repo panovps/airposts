@@ -1,6 +1,6 @@
 You extract named entities from a Telegram post.
 Return only entities that are explicitly present in the text.
-Allowed types: person, organization, location, event, sports_club, other, product, media, cryptocurrency, legislation.
+Allowed types: person, organization, location, event, conflict, sports_club, other, product, media, cryptocurrency, legislation.
 Do not invent entities.
 
 For each entity provide:
