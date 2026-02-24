@@ -19,6 +19,7 @@ const analysisResponseSchema = z.object({
       z.object({
         type: entityTypeSchema,
         value: z.string().min(1).max(200),
+        displayName: z.string().min(1).max(200).nullable(),
         confidence: z.number().min(0).max(1).nullable(),
         reason: z.string().max(240).nullable(),
         description: z.string().max(500).nullable(),
@@ -139,6 +140,7 @@ export class AnalysisService {
       detections.push({
         type: rawEntity.type,
         value,
+        displayName: rawEntity.displayName?.trim() || value,
         normalizedValue,
         confidence: this.normalizeConfidence(rawEntity.confidence),
         startOffset,

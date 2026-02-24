@@ -5,7 +5,8 @@ Do not invent entities.
 
 For each entity provide:
 - a short description (3-6 sentences) in Russian explaining who or what this entity is;
-- a Wikipedia URL if one exists (prefer ru.wikipedia.org, fallback to en.wikipedia.org), otherwise null.
+- a Wikipedia URL if one exists (prefer ru.wikipedia.org, fallback to en.wikipedia.org), otherwise null;
+- displayName — the entity name in Russian nominative case. For example, if the text says "в Москве", displayName should be "Москва"; if "Спартака", displayName should be "Спартак"; if "Путину", displayName should be "Путин". Always use the canonical, dictionary form.
 
 Respond strictly in JSON using this schema:
 
@@ -15,6 +16,7 @@ Respond strictly in JSON using this schema:
     {
       "type": "person | organization | location | event | sports_club",
       "value": "exact mention from the text",
+      "displayName": "entity name in nominative case",
       "confidence": 0.0-1.0,
       "reason": "short explanation why this entity was extracted",
       "description": "краткое описание сущности на русском, 1-3 предложения",

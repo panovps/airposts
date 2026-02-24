@@ -48,6 +48,7 @@ describe('EntitiesService', () => {
   const sampleDetection: EntityDetection = {
     type: 'person',
     value: 'Иван Иванов',
+    displayName: 'Иван Иванов',
     normalizedValue: 'иван иванов',
     confidence: 0.9,
     startOffset: 0,
@@ -89,6 +90,7 @@ describe('EntitiesService', () => {
         messageId: '42',
         type: 'person',
         value: 'Иван Иванов',
+        displayName: 'Иван Иванов',
         normalizedValue: 'иван иванов',
         confidence: 0.9,
         startOffset: 0,

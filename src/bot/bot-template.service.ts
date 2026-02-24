@@ -94,6 +94,7 @@ export class BotTemplateService implements OnModuleInit {
       label: TYPE_LABELS[type],
       items: grouped.get(type)!.map((item) => ({
         value: item.value,
+        displayName: item.displayName,
         description: item.description,
       })),
     }));

@@ -208,6 +208,7 @@ describe('BotHandlersService', () => {
         {
           type: 'person',
           value: 'John',
+          displayName: 'John',
           normalizedValue: 'john',
           confidence: 0.9,
           startOffset: 0,
@@ -307,6 +308,7 @@ describe('BotHandlersService', () => {
         {
           type: 'person',
           value: 'Elon Musk',
+          displayName: 'Elon Musk',
           normalizedValue: 'elon musk',
           confidence: 0.99,
           startOffset: 0,
@@ -318,6 +320,7 @@ describe('BotHandlersService', () => {
         {
           type: 'organization',
           value: 'SpaceX',
+          displayName: 'SpaceX',
           normalizedValue: 'spacex',
           confidence: 0.95,
           startOffset: 13,
@@ -359,6 +362,7 @@ describe('BotHandlersService', () => {
         {
           type: 'person',
           value: '<script>alert(1)</script>',
+          displayName: '<script>alert(1)</script>',
           normalizedValue: '<script>alert(1)</script>',
           confidence: 0.9,
           startOffset: null,

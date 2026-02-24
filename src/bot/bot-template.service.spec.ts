@@ -90,6 +90,7 @@ describe('BotTemplateService', () => {
         {
           type: 'person',
           value: 'John Doe',
+          displayName: 'John Doe',
           normalizedValue: 'john doe',
           confidence: 0.9,
           startOffset: 0,
@@ -101,6 +102,7 @@ describe('BotTemplateService', () => {
         {
           type: 'person',
           value: 'Jane Smith',
+          displayName: 'Jane Smith',
           normalizedValue: 'jane smith',
           confidence: 0.85,
           startOffset: 10,
@@ -112,6 +114,7 @@ describe('BotTemplateService', () => {
         {
           type: 'organization',
           value: 'OpenAI',
+          displayName: 'OpenAI',
           normalizedValue: 'openai',
           confidence: 0.95,
           startOffset: 25,
@@ -138,6 +141,7 @@ describe('BotTemplateService', () => {
         {
           type: 'person',
           value: 'Elon Musk',
+          displayName: 'Elon Musk',
           normalizedValue: 'elon musk',
           confidence: 0.99,
           startOffset: 0,
@@ -159,6 +163,7 @@ describe('BotTemplateService', () => {
         {
           type: 'person',
           value: '<script>alert(1)</script>',
+          displayName: '<script>alert(1)</script>',
           normalizedValue: '<script>alert(1)</script>',
           confidence: 0.9,
           startOffset: null,
@@ -180,6 +185,7 @@ describe('BotTemplateService', () => {
         {
           type: 'sports_club',
           value: 'FC Barcelona',
+          displayName: 'FC Barcelona',
           normalizedValue: 'fc barcelona',
           confidence: 0.9,
           startOffset: null,
@@ -191,6 +197,7 @@ describe('BotTemplateService', () => {
         {
           type: 'person',
           value: 'Messi',
+          displayName: 'Messi',
           normalizedValue: 'messi',
           confidence: 0.9,
           startOffset: null,
@@ -202,6 +209,7 @@ describe('BotTemplateService', () => {
         {
           type: 'location',
           value: 'Barcelona',
+          displayName: 'Barcelona',
           normalizedValue: 'barcelona',
           confidence: 0.9,
           startOffset: null,

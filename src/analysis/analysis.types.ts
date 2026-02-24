@@ -9,6 +9,7 @@ export type LlmModel = ReturnType<typeof openai> | ReturnType<typeof anthropic> 
 export interface EntityDetection {
   type: EntityType;
   value: string;
+  displayName: string;
   normalizedValue: string;
   confidence: number;
   startOffset: number | null;

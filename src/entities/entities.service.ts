@@ -30,6 +30,7 @@ export class EntitiesService {
           messageId,
           type: detection.type,
           value: detection.value,
+          displayName: detection.displayName,
           normalizedValue: detection.normalizedValue,
           confidence: detection.confidence,
           startOffset: detection.startOffset,

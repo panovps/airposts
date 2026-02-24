@@ -35,6 +35,9 @@ export class EntityRecordEntity {
   @Column({ name: 'normalized_value', type: 'text' })
   normalizedValue!: string;
 
+  @Column({ name: 'display_name', type: 'text', nullable: true })
+  displayName!: string | null;
+
   @Column({
     type: 'numeric',
     precision: 5,

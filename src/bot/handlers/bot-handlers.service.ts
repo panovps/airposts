@@ -129,7 +129,7 @@ export class BotHandlersService {
 
     for (const detection of detections) {
       if (detection.wikiUrl) {
-        keyboard.webApp(detection.value, detection.wikiUrl);
+        keyboard.webApp(detection.displayName, detection.wikiUrl);
         hasWikiButtons = true;
         buttonCount++;
         if (buttonCount % WIKI_BUTTONS_PER_ROW === 0) {
