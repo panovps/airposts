@@ -18,3 +18,15 @@ export interface EntityDetection {
   description: string | null;
   wikiUrl: string | null;
 }
+
+export interface PartialEntityDetection {
+  type?: string;
+  value?: string;
+  displayName?: string | null;
+  description?: string | null;
+}
+
+export interface AnalysisStreamResult {
+  partialObjectStream: AsyncIterable<{ entities?: (PartialEntityDetection | undefined)[] }>;
+  object: Promise<{ entities: EntityDetection[] }>;
+}

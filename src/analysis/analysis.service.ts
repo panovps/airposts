@@ -6,10 +6,10 @@ import { deepseek } from '@ai-sdk/deepseek';
 import { openai } from '@ai-sdk/openai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateObject } from 'ai';
+import { generateObject, streamObject } from 'ai';
 import { z } from 'zod';
 
-import { EntityDetection, LlmModel } from './analysis.types';
+import { AnalysisStreamResult, EntityDetection, LlmModel } from './analysis.types';
 
 const entityTypeSchema = z.enum(['person', 'organization', 'location', 'event', 'sports_club']);
 
@@ -52,6 +52,27 @@ export class AnalysisService {
     }
 
     return this.analyzeWithAi(source);
+  }
+
+  analyzeStream(text: string): AnalysisStreamResult {
+    const source = text.trim();
+    const { model } = this.resolveModel();
+
+    const result = streamObject({
+      model,
+      schema: analysisResponseSchema,
+      temperature: 0,
+      maxOutputTokens: 8192,
+      system: systemPrompt,
+      prompt: userPromptTemplate.replace('{{source}}', source),
+    });
+
+    return {
+      partialObjectStream: result.partialObjectStream,
+      object: result.object.then((obj) => ({
+        entities: this.normalizeDetections(source, obj.entities),
+      })),
+    };
   }
 
   private async analyzeWithAi(source: string): Promise<EntityDetection[]> {

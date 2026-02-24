@@ -74,7 +74,7 @@ export class BotTemplateService implements OnModuleInit {
     return this.render('history', { messages });
   }
 
-  renderAnalysisReply(messageId: string, detections: EntityDetection[], hasText: boolean): string {
+  renderAnalysisReply(messageId: string, detections: EntityDetection[], hasText: boolean, draft = false): string {
     if (!hasText) {
       return this.render('analysis-reply', { noText: true, messageId });
     }
@@ -103,6 +103,7 @@ export class BotTemplateService implements OnModuleInit {
       messageId,
       totalCount: detections.length,
       groups,
+      draft,
     });
   }
 }

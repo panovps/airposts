@@ -4,6 +4,7 @@ import { Bot, InlineKeyboard } from 'grammy';
 import { AnalysisService } from '../../analysis/analysis.service';
 import { EntityDetection } from '../../analysis/analysis.types';
 import {
+  DRAFT_THROTTLE_MS,
   HISTORY_MESSAGES_LIMIT,
   MESSAGE_PREVIEW_MAX_LENGTH,
   NO_TEXT_PLACEHOLDER,
@@ -89,25 +90,67 @@ export class BotHandlersService {
     const sourceText = message.text?.trim();
 
     if (type === 'message' && sourceText) {
-      const pending = await ctx.reply(this.botTemplateService.renderAnalysisPending());
+      const chatId = ctx.chat!.id;
+      const draftId = ctx.msg!.message_id;
 
       try {
-        const detections = await this.analysisService.analyze(sourceText);
+        const pendingText = this.botTemplateService.renderAnalysisPending();
+        await (ctx.api as any).sendMessageDraft(chatId, draftId, pendingText).catch(() => {});
+
+        const stream = this.analysisService.analyzeStream(sourceText);
+        const finalObjectPromise = stream.object;
+        // Stream of partial chunks can fail before final object is awaited.
+        // Attach a sink catch to prevent unhandled rejection in that branch.
+        void finalObjectPromise.catch(() => undefined);
+
+        let lastDraftTime = 0;
+        let lastEntityCount = 0;
+
+        for await (const partial of stream.partialObjectStream) {
+          const entities = partial.entities ?? [];
+          const completeEntities = entities.filter(
+            (e) => e != null && typeof e.type === 'string' && typeof e.value === 'string',
+          );
+
+          if (completeEntities.length > lastEntityCount) {
+            const now = Date.now();
+            if (now - lastDraftTime >= DRAFT_THROTTLE_MS) {
+              lastEntityCount = completeEntities.length;
+              lastDraftTime = now;
+
+              const draftDetections: EntityDetection[] = completeEntities.map((e) => ({
+                type: e!.type as EntityDetection['type'],
+                value: e!.value!,
+                displayName: e!.displayName?.trim() || e!.value!,
+                normalizedValue: e!.value!.toLowerCase(),
+                confidence: 0,
+                startOffset: null,
+                endOffset: null,
+                reason: '',
+                description: e!.description ?? null,
+                wikiUrl: null,
+              }));
+
+              const draftText = this.botTemplateService.renderAnalysisReply(message.id, draftDetections, true, true);
+
+              try {
+                await (ctx.api as any).sendMessageDraft(chatId, draftId, draftText, { parse_mode: 'HTML' });
+              } catch {
+                // Draft API may not be available, continue silently
+              }
+            }
+          }
+        }
+
+        const finalObj = await finalObjectPromise;
+        const detections = finalObj.entities;
+
         await this.entitiesService.replaceForMessage(message.id, detections);
         const reply = this.buildAnalysisReply(message.id, detections, true);
-        await ctx.api.editMessageText(
-          pending.chat.id,
-          pending.message_id,
-          reply.text,
-          { parse_mode: 'HTML', reply_markup: reply.keyboard },
-        );
+        await ctx.reply(reply.text, { parse_mode: 'HTML', reply_markup: reply.keyboard });
       } catch (error) {
         this.logger.error('Analysis failed', error);
-        await ctx.api.editMessageText(
-          pending.chat.id,
-          pending.message_id,
-          this.botTemplateService.renderAnalysisError(),
-        );
+        await ctx.reply(this.botTemplateService.renderAnalysisError());
         await this.entitiesService.replaceForMessage(message.id, []);
       }
       return;

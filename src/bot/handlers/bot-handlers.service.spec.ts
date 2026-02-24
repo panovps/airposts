@@ -60,7 +60,10 @@ const mockMessagesService = {
   findRecentByTelegramUser: jest.fn(),
   findRecentWithEntityCounts: jest.fn(),
 };
-const mockAnalysisService = { analyze: jest.fn() };
+const mockAnalysisService = {
+  analyze: jest.fn(),
+  analyzeStream: jest.fn(),
+};
 const mockEntitiesService = { replaceForMessage: jest.fn(), findByMessageIds: jest.fn() };
 
 describe('BotHandlersService', () => {
@@ -201,7 +204,19 @@ describe('BotHandlersService', () => {
       service.registerHandlers(bot);
     });
 
-    it('should analyze text, edit placeholder with results', async () => {
+    function createMockStream(detections: EntityDetection[]) {
+      async function* makeStream() {
+        for (const d of detections) {
+          yield { entities: [{ type: d.type, value: d.value, displayName: d.displayName, description: d.description }] };
+        }
+      }
+      return {
+        partialObjectStream: makeStream(),
+        object: Promise.resolve({ entities: detections }),
+      };
+    }
+
+    it('should stream analysis and send final reply with results', async () => {
       mockMessagesService.storeFromContext.mockResolvedValue({ id: '42', text: 'Hello world' });
 
       const detections: EntityDetection[] = [
@@ -218,25 +233,24 @@ describe('BotHandlersService', () => {
           wikiUrl: null,
         },
       ];
-      mockAnalysisService.analyze.mockResolvedValue(detections);
+      mockAnalysisService.analyzeStream.mockReturnValue(createMockStream(detections));
       mockEntitiesService.replaceForMessage.mockResolvedValue([]);
 
       const ctx = {
         state: { telegramUser: { id: '1' } },
+        chat: { id: 100 },
+        update: { update_id: 555 },
         reply: jest.fn().mockResolvedValue({ chat: { id: 100 }, message_id: 99 }),
         api: {
-          editMessageText: jest.fn().mockResolvedValue(undefined),
+          sendMessageDraft: jest.fn().mockResolvedValue(true),
         },
       };
 
       await onHandlers.get('message')!(ctx);
 
-      expect(ctx.reply).toHaveBeenCalledWith('Анализирую сообщение…');
-      expect(mockAnalysisService.analyze).toHaveBeenCalledWith('Hello world');
+      expect(mockAnalysisService.analyzeStream).toHaveBeenCalledWith('Hello world');
       expect(mockEntitiesService.replaceForMessage).toHaveBeenCalledWith('42', detections);
-      expect(ctx.api.editMessageText).toHaveBeenCalledWith(
-        100,
-        99,
+      expect(ctx.reply).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ parse_mode: 'HTML' }),
       );
@@ -248,15 +262,17 @@ describe('BotHandlersService', () => {
 
       const ctx = {
         state: { telegramUser: { id: '1' } },
+        chat: { id: 100 },
+        update: { update_id: 555 },
         reply: jest.fn(),
-        api: { editMessageText: jest.fn() },
+        api: { sendMessageDraft: jest.fn() },
       };
 
       await onHandlers.get('message')!(ctx);
 
       expect(mockEntitiesService.replaceForMessage).toHaveBeenCalledWith('42', []);
       expect(ctx.reply).not.toHaveBeenCalled();
-      expect(mockAnalysisService.analyze).not.toHaveBeenCalled();
+      expect(mockAnalysisService.analyzeStream).not.toHaveBeenCalled();
     });
 
     it('should skip when telegramUser is missing from state', async () => {
@@ -270,28 +286,33 @@ describe('BotHandlersService', () => {
       expect(mockMessagesService.storeFromContext).not.toHaveBeenCalled();
     });
 
-    it('should handle LLM failure and clean up pending message', async () => {
+    it('should handle stream failure and send error reply', async () => {
       mockMessagesService.storeFromContext.mockResolvedValue({ id: '42', text: 'Hello world' });
-      mockAnalysisService.analyze.mockRejectedValue(new Error('LLM timeout'));
+
+      async function* failingStream(): AsyncGenerator<any> {
+        throw new Error('LLM timeout');
+      }
+
+      const objectPromise = Promise.reject(new Error('LLM timeout'));
+      mockAnalysisService.analyzeStream.mockReturnValue({
+        partialObjectStream: failingStream(),
+        object: objectPromise,
+      });
       mockEntitiesService.replaceForMessage.mockResolvedValue([]);
 
       const ctx = {
         state: { telegramUser: { id: '1' } },
+        chat: { id: 100 },
+        update: { update_id: 555 },
         reply: jest.fn().mockResolvedValue({ chat: { id: 100 }, message_id: 99 }),
         api: {
-          editMessageText: jest.fn().mockResolvedValue(undefined),
+          sendMessageDraft: jest.fn().mockResolvedValue(true),
         },
       };
 
       await onHandlers.get('message')!(ctx);
 
-      expect(ctx.reply).toHaveBeenCalledWith('Анализирую сообщение…');
-      expect(mockAnalysisService.analyze).toHaveBeenCalledWith('Hello world');
-      expect(ctx.api.editMessageText).toHaveBeenCalledWith(
-        100,
-        99,
-        'Не удалось проанализировать сообщение. Попробуйте позже.\n',
-      );
+      expect(ctx.reply).toHaveBeenCalledWith('Не удалось проанализировать сообщение. Попробуйте позже.\n');
       expect(mockEntitiesService.replaceForMessage).toHaveBeenCalledWith('42', []);
     });
   });
@@ -300,6 +321,16 @@ describe('BotHandlersService', () => {
     beforeEach(() => {
       service.registerHandlers(bot);
     });
+
+    function createMockStreamForDetections(detections: EntityDetection[]) {
+      async function* makeStream() {
+        yield { entities: detections.map((d) => ({ type: d.type, value: d.value, displayName: d.displayName, description: d.description })) };
+      }
+      return {
+        partialObjectStream: makeStream(),
+        object: Promise.resolve({ entities: detections }),
+      };
+    }
 
     it('should group detections by type with wiki links and description', async () => {
       mockMessagesService.storeFromContext.mockResolvedValue({ id: '42', text: 'Elon Musk at SpaceX' });
@@ -330,18 +361,20 @@ describe('BotHandlersService', () => {
           wikiUrl: null,
         },
       ];
-      mockAnalysisService.analyze.mockResolvedValue(detections);
+      mockAnalysisService.analyzeStream.mockReturnValue(createMockStreamForDetections(detections));
       mockEntitiesService.replaceForMessage.mockResolvedValue([]);
 
       const ctx = {
         state: { telegramUser: { id: '1' } },
+        chat: { id: 100 },
+        update: { update_id: 555 },
         reply: jest.fn().mockResolvedValue({ chat: { id: 100 }, message_id: 99 }),
-        api: { editMessageText: jest.fn() },
+        api: { sendMessageDraft: jest.fn().mockResolvedValue(true) },
       };
 
       await onHandlers.get('message')!(ctx);
 
-      const replyText = ctx.api.editMessageText.mock.calls[0][2] as string;
+      const replyText = ctx.reply.mock.calls[0][0] as string;
       expect(replyText).toContain('<b>👤 Персоны:</b>');
       expect(replyText).toContain('Elon Musk');
       expect(replyText).toContain('<blockquote expandable>CEO of SpaceX</blockquote>');
@@ -350,12 +383,11 @@ describe('BotHandlersService', () => {
       expect(replyText).toContain('Найдено сущностей: 2');
       expect(replyText).not.toContain('<a href=');
 
-      const options = ctx.api.editMessageText.mock.calls[0][3];
+      const options = ctx.reply.mock.calls[0][1];
       expect(options.reply_markup).toBeDefined();
     });
 
     it('should escape HTML in values', async () => {
-      mockTelegramUsersService.upsertFromTelegramUser.mockResolvedValue({ id: '1' });
       mockMessagesService.storeFromContext.mockResolvedValue({ id: '42', text: '<b>Test</b>' });
 
       const detections: EntityDetection[] = [
@@ -372,18 +404,20 @@ describe('BotHandlersService', () => {
           wikiUrl: null,
         },
       ];
-      mockAnalysisService.analyze.mockResolvedValue(detections);
+      mockAnalysisService.analyzeStream.mockReturnValue(createMockStreamForDetections(detections));
       mockEntitiesService.replaceForMessage.mockResolvedValue([]);
 
       const ctx = {
         state: { telegramUser: { id: '1' } },
+        chat: { id: 100 },
+        update: { update_id: 555 },
         reply: jest.fn().mockResolvedValue({ chat: { id: 100 }, message_id: 99 }),
-        api: { editMessageText: jest.fn() },
+        api: { sendMessageDraft: jest.fn().mockResolvedValue(true) },
       };
 
       await onHandlers.get('message')!(ctx);
 
-      const replyText = ctx.api.editMessageText.mock.calls[0][2] as string;
+      const replyText = ctx.reply.mock.calls[0][0] as string;
       expect(replyText).toContain('&lt;script&gt;');
       expect(replyText).not.toContain('<script>');
     });

@@ -17,3 +17,8 @@ export const WIKI_BUTTONS_PER_ROW = 2;
  * Fallback-текст для сообщений без текста
  */
 export const NO_TEXT_PLACEHOLDER = '[без текста]';
+
+/**
+ * Минимальный интервал между обновлениями draft-сообщения (мс)
+ */
+export const DRAFT_THROTTLE_MS = 500;

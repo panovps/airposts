@@ -3,9 +3,8 @@
 {{else if noEntities}}
 Сообщение #{{messageId}} сохранено. Сущности не обнаружены.
 {{else}}
-Сообщение #{{messageId}} проанализировано. Найдено сущностей: {{totalCount}}
-{{#each groups}}
-
+{{#unless draft}}Сообщение #{{messageId}} проанализировано. Найдено сущностей: {{totalCount}}
+{{/unless}}{{#each groups}}
 <b>{{label}}:</b>
 {{#each items}}
 - <u>{{displayName}}</u>{{#if description}}

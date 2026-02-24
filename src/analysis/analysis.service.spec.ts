@@ -4,6 +4,7 @@ jest.mock('node:fs', () => ({
 
 jest.mock('ai', () => ({
   generateObject: jest.fn(),
+  streamObject: jest.fn(),
 }));
 
 jest.mock('@ai-sdk/openai', () => ({
@@ -20,7 +21,7 @@ jest.mock('@ai-sdk/deepseek', () => ({
 
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { generateObject } from 'ai';
+import { generateObject, streamObject } from 'ai';
 
 import { AnalysisService } from './analysis.service';
 
@@ -29,6 +30,7 @@ const mockConfigService = {
 };
 
 const mockGenerateObject = generateObject as jest.MockedFunction<typeof generateObject>;
+const mockStreamObject = streamObject as jest.MockedFunction<typeof streamObject>;
 
 describe('AnalysisService', () => {
   let service: AnalysisService;
@@ -239,6 +241,42 @@ describe('AnalysisService', () => {
 
       const { openai } = jest.requireMock('@ai-sdk/openai');
       expect(openai).toHaveBeenCalled();
+    });
+  });
+
+  describe('analyzeStream', () => {
+    it('should return partialObjectStream and normalized object promise', async () => {
+      const partials = [
+        { entities: [{ type: 'person', value: 'John' }] },
+        { entities: [{ type: 'person', value: 'John' }, { type: 'location', value: 'NYC' }] },
+      ];
+
+      async function* makeStream() {
+        for (const p of partials) yield p;
+      }
+
+      mockStreamObject.mockReturnValue({
+        partialObjectStream: makeStream(),
+        object: Promise.resolve({
+          entities: [
+            { type: 'person', value: 'John', displayName: null, confidence: 0.9, reason: 'Name', description: null, wikiUrl: null },
+            { type: 'location', value: 'NYC', displayName: null, confidence: 0.8, reason: 'City', description: null, wikiUrl: null },
+          ],
+        }),
+      } as any);
+
+      const result = service.analyzeStream('John went to NYC');
+
+      const collected: any[] = [];
+      for await (const partial of result.partialObjectStream) {
+        collected.push(partial);
+      }
+      expect(collected).toHaveLength(2);
+
+      const final = await result.object;
+      expect(final.entities).toHaveLength(2);
+      expect(final.entities[0]).toEqual(expect.objectContaining({ type: 'person', value: 'John' }));
+      expect(final.entities[1]).toEqual(expect.objectContaining({ type: 'location', value: 'NYC' }));
     });
   });
 
