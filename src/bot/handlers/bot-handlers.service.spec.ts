@@ -342,10 +342,10 @@ describe('BotHandlersService', () => {
       await onHandlers.get('message')!(ctx);
 
       const replyText = ctx.api.editMessageText.mock.calls[0][2] as string;
-      expect(replyText).toContain('<b>Персоны:</b>');
+      expect(replyText).toContain('<b>👤 Персоны:</b>');
       expect(replyText).toContain('Elon Musk');
       expect(replyText).toContain('<blockquote expandable>CEO of SpaceX</blockquote>');
-      expect(replyText).toContain('<b>Организации:</b>');
+      expect(replyText).toContain('<b>🏢 Организации:</b>');
       expect(replyText).toContain('SpaceX');
       expect(replyText).toContain('Найдено сущностей: 2');
       expect(replyText).not.toContain('<a href=');

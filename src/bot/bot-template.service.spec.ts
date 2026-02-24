@@ -129,10 +129,10 @@ describe('BotTemplateService', () => {
 
       expect(result).toContain('#42');
       expect(result).toContain('Найдено сущностей: 3');
-      expect(result).toContain('<b>Персоны:</b>');
+      expect(result).toContain('<b>👤 Персоны:</b>');
       expect(result).toContain('John Doe');
       expect(result).toContain('Jane Smith');
-      expect(result).toContain('<b>Организации:</b>');
+      expect(result).toContain('<b>🏢 Организации:</b>');
       expect(result).toContain('OpenAI');
     });
 
@@ -222,9 +222,9 @@ describe('BotTemplateService', () => {
 
       const result = service.renderAnalysisReply('42', detections, true);
 
-      const personIndex = result.indexOf('<b>Персоны:</b>');
-      const locationIndex = result.indexOf('<b>Локации:</b>');
-      const sportsClubIndex = result.indexOf('<b>Спортивные клубы:</b>');
+      const personIndex = result.indexOf('<b>👤 Персоны:</b>');
+      const locationIndex = result.indexOf('<b>📍 Локации:</b>');
+      const sportsClubIndex = result.indexOf('<b>⚽ Спортивные клубы:</b>');
 
       expect(personIndex).toBeLessThan(locationIndex);
       expect(locationIndex).toBeLessThan(sportsClubIndex);

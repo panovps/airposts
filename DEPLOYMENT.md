@@ -392,7 +392,7 @@ docker compose up -d --build
 docker compose exec app env
 
 # Выполнить команду в контейнере
-docker compose exec app npm run typecheck
+docker compose exec app npm run typecheck 
 
 # Посмотреть размер образов
 docker images | grep airpost

@@ -27,7 +27,7 @@ const analysisResponseSchema = z.object({
         wikiUrl: z.string().max(500).nullable(),
       }),
     )
-    .max(40),
+    .max(10),
 });
 
 type LlmProvider = 'openai' | 'anthropic' | 'deepseek';
@@ -61,6 +61,7 @@ export class AnalysisService {
       model,
       schema: analysisResponseSchema,
       temperature: 0,
+      maxOutputTokens: 8192,
       system: systemPrompt,
       prompt: userPromptTemplate.replace('{{source}}', source),
     });

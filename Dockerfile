@@ -25,35 +25,34 @@ RUN npm run build
 
 # Stage 3: Production
 FROM node:24-alpine AS production
-WORKDIR /app
+
+# Create non-root user first (before any COPY)
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
 
 # Install PostgreSQL client for migrations healthcheck
 RUN apk add --no-cache postgresql-client
 
-# Install dependencies (including dev deps needed for migrations)
-COPY package*.json ./
-RUN npm ci && npm cache clean --force
+WORKDIR /app
+
+# Copy production dependencies from deps stage (skip second npm ci)
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copy built application from builder
-COPY --from=builder /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
 # Copy necessary runtime files
-COPY --from=builder /app/src/analysis/prompts ./dist/analysis/prompts
-COPY --from=builder /app/src/bot/templates ./dist/bot/templates
+COPY --from=builder --chown=nodejs:nodejs /app/src/analysis/prompts ./dist/analysis/prompts
+COPY --from=builder --chown=nodejs:nodejs /app/src/bot/templates ./dist/bot/templates
 
 # Copy ALL source files for TypeORM migrations (needs entities)
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder --chown=nodejs:nodejs /app/src ./src
+COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/tsconfig.json ./tsconfig.json
 
 # Copy entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY --chown=nodejs:nodejs docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 && \
-    chown -R nodejs:nodejs /app
 
 USER nodejs
 

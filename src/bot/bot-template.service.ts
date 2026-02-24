@@ -9,11 +9,11 @@ import { EntityDetection, EntityType } from '../analysis/analysis.types';
 const TYPE_ORDER: EntityType[] = ['person', 'organization', 'location', 'event', 'sports_club'];
 
 const TYPE_LABELS: Record<EntityType, string> = {
-  person: 'Персоны',
-  organization: 'Организации',
-  location: 'Локации',
-  event: 'События',
-  sports_club: 'Спортивные клубы',
+  person: '👤 Персоны',
+  organization: '🏢 Организации',
+  location: '📍 Локации',
+  event: '📅 События',
+  sports_club: '⚽ Спортивные клубы',
 };
 
 interface HistoryMessage {
